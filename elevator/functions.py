@@ -75,6 +75,7 @@ def run_simulation(config, algo=SimpleUpDown()):
     average_journey = np.mean(journey_times)
     average_time_in_elevator = np.mean(in_elevator_times)
 
+    print(f"{algo.name}:")
     print(f"Average journey time (includes waiting time): {round(average_journey, 1)} (seconds)")
     print(f"Average time spent in lift: {round(average_time_in_elevator, 1)} (seconds)")
 
