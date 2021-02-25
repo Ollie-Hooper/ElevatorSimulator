@@ -6,13 +6,13 @@ import random
 import time
 
 from elevator.algorithms import BasicAlgorithm, SimpleUpDown, ClosestFloor, NormalLift, \
-    LongestWaited  # Import your algorithm from the algorithms file here
+    LongestWaited, PopularFloor  # Import your algorithm from the algorithms file here
 from elevator.classes import Elevator, Passenger, Building
 from elevator.functions import run_simulation, charts, run_iteration, generate_passenger, time_method
 
 
 def main():
-    algos = [SimpleUpDown(), ClosestFloor(), NormalLift(), LongestWaited()]  # Algorithms to test
+    algos = [SimpleUpDown(), ClosestFloor(), NormalLift(), LongestWaited(), PopularFloor()]  # Algorithms to test
 
     iterations = 100  # How many times to run the simulation - set to 0 to study the first algorithm in the algos list
 

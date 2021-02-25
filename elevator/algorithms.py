@@ -154,3 +154,69 @@ class LongestWaited:  # Rachel
                 return elevator_longest_waited_floor
             else:
                 return longest_waited_floor
+
+
+class PopularFloor:  # Conrad
+
+    def __init__(self):
+        self.name = "PopularFloor"
+        self.only_pickup_directional_passengers = False
+
+    def next_floor(self, building, elevator, origins, destinations):
+        n_destinations_occupants = [0 for floor in range(
+            building.floors)]  # Create an empty array of the correct length for the floors to be used for occupants of lift
+
+        n_destinations_waiting_passengers = [0 for floor in range(
+            building.floors)]  # Creates the same array as above, but to be used for passengers waiting for lift
+
+        most_popular_destination_occupants = None  # Most Popular floor for passengers currently in the lift
+
+        most_popular_destination_passengers = None  # Most Popular Floor for waiting passengers
+
+        if not elevator.occupants and not bool([x for x in destinations.values() if x != []]):
+
+            return round(
+                building.floors / 2)  # If no one in elevator and no one waiting, go to middle floor ( i think )
+
+        elif not elevator.occupants and bool(
+                [x for x in destinations.values() if x != []]):  # If no occupants but people waiting then :
+
+            for floor, passengers_waiting in origins.items():
+                for passenger in passengers_waiting:
+                    n_destinations_waiting_passengers[passenger.destination] += 1
+
+            most_popular_destination_passengers = n_destinations_waiting_passengers.index(
+                max(n_destinations_waiting_passengers))
+
+            n_passengers_origin_for_destination = [0 for floor in range(building.floors)]
+
+            for floor, passengers_waiting in origins.items():
+                for passenger in passengers_waiting:
+                    if passenger.destination == most_popular_destination_passengers:
+                        n_passengers_origin_for_destination[passenger.origin] += 1
+
+            most_popular_origin_for_destination = n_passengers_origin_for_destination.index(
+                max(n_passengers_origin_for_destination))
+
+            return most_popular_origin_for_destination
+        else:  # Passengers in elevator
+            for passenger in elevator.occupants:
+                n_destinations_occupants[passenger.destination] += 1
+
+            most_popular_destination_occupants = n_destinations_occupants.index(max(n_destinations_occupants))
+
+            if elevator.max_occupancy == len(elevator.occupants):
+                return most_popular_destination_occupants
+
+            n_passengers_origin_for_destination = [0 for floor in range(building.floors)]
+
+            for floor, passengers_waiting in origins.items():
+                for passenger in passengers_waiting:
+                    if passenger.destination == most_popular_destination_occupants:
+                        n_passengers_origin_for_destination[passenger.origin] += 1
+
+            for floor in range(elevator.position, most_popular_destination_occupants):
+                if n_passengers_origin_for_destination[floor]:
+                    return floor
+
+            return most_popular_destination_occupants
