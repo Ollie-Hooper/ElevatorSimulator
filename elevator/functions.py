@@ -1,7 +1,10 @@
-import random
+import json
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+import pandas as pd
+import random
 import seaborn as sns
 import time
 
@@ -25,21 +28,32 @@ def time_method(func):
 
 
 def charts(name, df_journey_times, df_in_elevator_times):
-    sns.boxplot(data=df_journey_times)
-    plt.savefig(f"output/{name}/boxplot_journey.png")
-    plt.clf()
-    for algo in df_journey_times.columns:
-        sns.histplot(df_journey_times[algo])
-        plt.savefig(f"output/{name}/histogram_{algo}_journey.png")
-        plt.clf()
+    df_journey_times.reset_index(drop=True, inplace=True)
+    for algo in df_journey_times:
+        df_journey_times[algo] = df_journey_times[algo].sort_values(ignore_index=True)
+    df_journey_times_95 = df_journey_times.head(round(len(df_journey_times) * 0.95))
 
-    sns.boxplot(data=df_in_elevator_times)
-    plt.savefig(f"output/{name}/boxplot_elevator.png")
-    plt.clf()
-    for algo in df_in_elevator_times.columns:
-        sns.histplot(df_in_elevator_times[algo])
-        plt.savefig(f"output/{name}/histogram_{algo}_elevator.png")
-        plt.clf()
+    df_in_elevator_times.reset_index(drop=True, inplace=True)
+    for algo in df_in_elevator_times:
+        df_in_elevator_times[algo] = df_in_elevator_times[algo].sort_values(ignore_index=True)
+    df_in_elevator_times_95 = df_in_elevator_times.head(round(len(df_in_elevator_times) * 0.95))
+
+    for df_name, df in {'journey': df_journey_times, 'elevator': df_in_elevator_times,
+                        'journey_95': df_journey_times_95,
+                        'elevator95': df_in_elevator_times_95}.items():
+        for plot in ['boxplot', 'violinplot', 'histogram']:
+            if plot == 'histogram':
+                for algo in df.columns:
+                    sns.histplot(df[algo])
+                    plt.savefig(f"output/{name}/{df_name}_{algo}_{df_name}.png")
+                    plt.clf()
+                continue
+            elif plot == 'boxplot':
+                sns.boxplot(data=df)
+            elif plot == 'violinplot':
+                sns.violinplot(data=df)
+            plt.savefig(f"output/{name}/{plot}_{df_name}.png")
+            plt.clf()
 
 
 @time_method
@@ -99,6 +113,7 @@ def generate_passenger(time_step, building, mode="morning"):
 def run_iteration(elevator, building, algo, origins, destinations, total_passengers, draw_enabled):
     if draw_enabled:
         time.sleep(0.5)
+
     current_floor = elevator.position
 
     exit_passengers = elevator.exit_passengers()
@@ -114,10 +129,13 @@ def run_iteration(elevator, building, algo, origins, destinations, total_passeng
     take_all_passengers = False
 
     if len(set([p.direction for p in enter_passengers])) != 2:
-        for d in occupant_destinations:
-            if np.sign(d - elevator.position) != elevator.direction:
-                take_all_passengers = True
-                break
+        if not elevator.occupants:
+            take_all_passengers = True
+        else:
+            for d in occupant_destinations:
+                if np.sign(d - elevator.position) == -1 * elevator.direction:
+                    take_all_passengers = True
+                    break
 
     for p in enter_passengers:
         if len(elevator.occupants) == elevator.max_occupancy:
@@ -136,6 +154,9 @@ def run_iteration(elevator, building, algo, origins, destinations, total_passeng
         draw(building, origins, elevator, total_passengers)
 
     next_floor = algo.next_floor(building, elevator, origins, destinations)
+
+    if next_floor == elevator.position:
+        elevator.direction = -1 * elevator.direction
 
     elevator.move(next_floor)
 
@@ -182,3 +203,73 @@ def draw(building, origins, elevator, total_passengers):
         string += "".join(["o" for i in range(len(origins[f]))])
 
     print(string)
+
+
+def batch_test(config):
+    tests = {}
+
+    names = ["small_morning", "small_daytime", "small_evening", "large_morning", "large_daytime", "large_evening"]
+
+    for name in names:
+        if "small" in name:
+            config["max_occupany"] = 6
+            config["n_floors"] = 4
+            config["n_passengers"] = 50
+            if "daytime" in name:
+                config["generate_range"] = (0, 1)
+        elif "large" in name:
+            config["max_occupany"] = 12
+            config["n_floors"] = 20
+            config["n_passengers"] = 100
+        tests[name] = config
+
+    for name, config in tests.items():
+        run_test(name, config)
+
+
+def run_test(name, config):
+    algos = [algo() for algo in config["algos"]]
+
+    iterations = config["iterations"]
+
+    if not iterations:
+        config["draw"] = True
+        run_simulation(config=config, algo=algos[0])
+        exit()
+
+    df_journey_times = pd.DataFrame(columns=[a.name for a in algos],
+                                    index=[[i for i in range(iterations) for j in range(config['n_passengers'])],
+                                           [i for j in range(iterations) for i in range(config['n_passengers'])]])
+
+    df_in_elevator_times = pd.DataFrame(columns=[a.name for a in algos],
+                                        index=[[i for i in range(iterations) for j in range(config['n_passengers'])],
+                                               [i for j in range(iterations) for i in range(config['n_passengers'])]])
+
+    for i in range(iterations):
+        for algo in algos:
+            ts = time.time()
+            journey_times, in_elevator_times = run_simulation(config=config, algo=algo)
+            ts_save = time.time()
+            df_journey_times.loc[(i, list(range(config['n_passengers']))), algo.name] = journey_times
+            df_in_elevator_times.loc[(i, list(range(config['n_passengers']))), algo.name] = in_elevator_times
+            te = time.time()
+            print(f"Save time - %2.3f seconds" % (te - ts_save))
+            print(f"Total time - %2.3f seconds" % (te - ts))
+            print()
+
+    if not os.path.exists(f"output"):
+        os.mkdir(f"output")
+    if not os.path.exists(f"output/{name}"):
+        os.mkdir(f"output/{name}")
+
+    df_journey_times.to_csv(f"output/{name}/journey_times.csv")
+    df_in_elevator_times.to_csv(f"output/{name}/elevator_times.csv")
+
+    save_config = config.copy()
+
+    save_config["algos"] = [algo.__name__ for algo in config["algos"]]
+
+    with open(f"output/{name}/config.json", 'w') as f:
+        json.dump(save_config, f)
+
+    charts(name, df_journey_times, df_in_elevator_times)
