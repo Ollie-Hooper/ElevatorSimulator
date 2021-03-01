@@ -77,7 +77,8 @@ class NormalLift:  # Cameron
     def next_floor(self, building, elevator, origins, destinations):
         current_floor = elevator.position
 
-        origins = {floor: passengers for floor, passengers in origins.items() if passengers != []}
+        origins = {floor: [passenger for passenger in passengers if passenger.direction == elevator.direction] for
+                   floor, passengers in origins.items() if passengers != []}
         destinations = {floor: [passenger for passenger in elevator.occupants if floor == passenger.destination] for
                         floor in range(building.floors)}
         destinations = {floor: passengers for floor, passengers in destinations.items() if passengers != []}
