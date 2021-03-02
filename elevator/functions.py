@@ -211,20 +211,21 @@ def batch_test(config):
     names = ["small_morning", "small_daytime", "small_evening", "large_morning", "large_daytime", "large_evening"]
 
     for name in names:
+        test_config = config.copy()
         if "small" in name:
-            config["max_occupany"] = 6
-            config["n_floors"] = 4
-            config["n_passengers"] = 50
+            test_config["max_occupancy"] = 6
+            test_config["n_floors"] = 4
+            test_config["n_passengers"] = 50
             if "daytime" in name:
-                config["generate_range"] = (0, 1)
+                test_config["generate_range"] = (0, 1)
         elif "large" in name:
-            config["max_occupany"] = 12
-            config["n_floors"] = 20
-            config["n_passengers"] = 100
-        tests[name] = config
+            test_config["max_occupancy"] = 12
+            test_config["n_floors"] = 20
+            test_config["n_passengers"] = 100
+        tests[name] = test_config
 
-    for name, config in tests.items():
-        run_test(name, config)
+    for name, test_config in tests.items():
+        run_test(name, test_config)
 
 
 def run_test(name, config):
